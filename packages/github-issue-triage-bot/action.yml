@@ -1,0 +1,17 @@
+name: "Kasap Issue Triage Bot"
+description: "Auto-labels new issues by keyword rules and flags likely duplicates by title similarity"
+inputs:
+  github-token:
+    description: "Token with issues:write permission (usually secrets.GITHUB_TOKEN)"
+    required: true
+  label-rules-path:
+    description: "Path (relative to the consuming repo) to the label-rules JSON config"
+    required: false
+    default: ".github/issue-triage-rules.json"
+  similarity-threshold:
+    description: "Jaccard similarity (0-1) above which an open issue is flagged as a likely duplicate"
+    required: false
+    default: "0.6"
+runs:
+  using: "node20"
+  main: "dist/index.js"

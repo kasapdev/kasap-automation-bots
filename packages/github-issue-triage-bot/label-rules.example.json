@@ -1,0 +1,7 @@
+{
+  "rules": [
+    { "label": "bug", "keywords": ["crash", "error", "exception", "broken"] },
+    { "label": "documentation", "keywords": ["docs", "readme", "documentation"] },
+    { "label": "question", "keywords": ["how do i", "how to", "question"] }
+  ]
+}

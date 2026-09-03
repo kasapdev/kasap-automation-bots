@@ -1,0 +1,4 @@
+[
+  { "name": "Example Web Server", "host": "example.com", "port": 443 },
+  { "name": "Example Minecraft Server", "host": "example.com", "port": 25565 }
+]

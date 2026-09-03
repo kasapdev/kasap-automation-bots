@@ -1,0 +1,12 @@
+[
+  {
+    "roleId": "000000000000000000",
+    "roleName": "VIP",
+    "price": 500
+  },
+  {
+    "roleId": "999999999999999999",
+    "roleName": "Moderator",
+    "price": 1000
+  }
+]

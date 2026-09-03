@@ -1,0 +1,15 @@
+name: "Kasap Auto Release Notes"
+description: "Builds a grouped release body from merged PRs between two tags and creates/updates the GitHub Release"
+inputs:
+  github-token:
+    description: "Token with contents:write permission (usually secrets.GITHUB_TOKEN)"
+    required: true
+  current-tag:
+    description: "The tag being released (defaults to GITHUB_REF_NAME if it's a tag push)"
+    required: false
+  previous-tag:
+    description: "The previous release tag to compare against"
+    required: true
+runs:
+  using: "node20"
+  main: "dist/index.js"

@@ -1,0 +1,5 @@
+{
+  "domains": ["example.com"],
+  "sslHosts": ["example.com"],
+  "warnDaysThreshold": 30
+}
