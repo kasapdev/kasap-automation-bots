@@ -11,8 +11,10 @@ dist/
 .env.*
 !.env.example
 
-# local data (sqlite db, state files, logs)
-data/
+# local runtime data (sqlite db, state files, logs) - matched by extension/
+# known filename, not a blanket "data/" directory rule (that would also hide
+# any real checked-in data/ folder a package adds later).
+data/ebay-price-state.json
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
