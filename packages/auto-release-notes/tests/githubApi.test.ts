@@ -50,6 +50,56 @@ describe("compareCommits", () => {
       compareCommits("owner", "repo", "v1.0.0", "v1.1.0", "test-token", fetchMock)
     ).rejects.toThrow(/404/);
   });
+
+  it("warns when the response is truncated (total_commits exceeds the returned array)", async () => {
+    const commits = [{ sha: "abc123", commit: { message: "feat: x (#1)" } }];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ commits, total_commits: 300 }));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await compareCommits(
+      "owner",
+      "repo",
+      "v1.0.0",
+      "v1.1.0",
+      "test-token",
+      fetchMock
+    );
+
+    expect(result).toEqual(commits);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0]?.[0]).toMatch(/1 of 300 total commits/);
+
+    warnSpy.mockRestore();
+  });
+
+  it("does not warn when total_commits matches the returned array length", async () => {
+    const commits = [
+      { sha: "abc123", commit: { message: "feat: x (#1)" } },
+      { sha: "def456", commit: { message: "fix: y (#2)" } },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ commits, total_commits: 2 }));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await compareCommits("owner", "repo", "v1.0.0", "v1.1.0", "test-token", fetchMock);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("does not warn when total_commits is absent from the response", async () => {
+    const commits = [{ sha: "abc123", commit: { message: "feat: x (#1)" } }];
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ commits }));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await compareCommits("owner", "repo", "v1.0.0", "v1.1.0", "test-token", fetchMock);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 });
 
 describe("extractMergedPrs", () => {

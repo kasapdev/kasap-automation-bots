@@ -27,6 +27,14 @@ function githubHeaders(token: string): Record<string, string> {
 
 /**
  * Fetches the list of commits between `base` and `head` via GitHub's compare API.
+ *
+ * Known limitation: GitHub's compare API caps the `commits` array at 250
+ * entries regardless of how many commits actually separate `base` and
+ * `head`. The response also carries a `total_commits` count reflecting the
+ * true total, so when it exceeds the array length we know the result is
+ * truncated and log a warning — otherwise a release spanning more than 250
+ * commits would silently produce incomplete release notes with no
+ * indication anything was missing.
  */
 export async function compareCommits(
   owner: string,
@@ -45,7 +53,19 @@ export async function compareCommits(
     );
   }
 
-  const data = (await response.json()) as { commits: CompareCommit[] };
+  const data = (await response.json()) as {
+    commits: CompareCommit[];
+    total_commits?: number;
+  };
+
+  if (typeof data.total_commits === "number" && data.total_commits > data.commits.length) {
+    console.warn(
+      `[auto-release-notes] GitHub's compare API returned ${data.commits.length} of ` +
+        `${data.total_commits} total commits between ${base} and ${head} (responses are ` +
+        "capped at 250). Some merged PRs may be missing from the generated release notes."
+    );
+  }
+
   return data.commits;
 }
 

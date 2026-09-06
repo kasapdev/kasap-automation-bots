@@ -76,6 +76,17 @@ git repository in the workflow runner. Compute it yourself in the consumer
 workflow YAML (e.g. via `git describe --tags --abbrev=0 HEAD^`, as shown
 above) and pass it explicitly as the `previous-tag` input.
 
+### Compare API is capped at 250 commits
+
+GitHub's compare API returns at most 250 entries in its `commits` array, no
+matter how many commits actually separate `previous-tag` and `current-tag`.
+For a release spanning more commits than that, the extra commits (and any
+PRs only reachable through them) are silently absent from the response.
+`compareCommits` checks the response's `total_commits` count against the
+array it actually got back and logs a `console.warn` when they differ, so a
+truncated (and therefore incomplete) release note is at least visible in the
+Action's logs instead of failing silently.
+
 ### Squash-merge only
 
 PR extraction relies on GitHub's default **squash-merge** commit message
