@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## Unreleased
+
+### Fixed
+
+- `packages/auto-release-notes`: `compareCommits` now detects when GitHub's
+  compare API has silently truncated its response (the `commits` array is
+  capped at 250 entries even when `total_commits` is higher) and logs a
+  `console.warn` naming how many commits were actually returned. Previously
+  a release spanning more than 250 commits would produce release notes
+  missing an unknown number of PRs with no indication anything was wrong.
+
 ## 2026-09-06
 
 ### Tests
