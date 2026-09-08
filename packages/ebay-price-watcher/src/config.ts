@@ -13,11 +13,20 @@ export interface AppConfig {
   stateFile: string;
   pollIntervalMs: number;
   items: WatchedItem[];
+  /**
+   * Currency every watched item's price is normalized into before it is
+   * compared/alerted on, so items listed in different currencies (or an
+   * item whose listing currency changes between checks) are never diffed
+   * as raw numbers across currencies.
+   */
+  baseCurrency: string;
 }
 
 const DEFAULT_ITEMS_FILE = "./ebay-items.json";
 const DEFAULT_STATE_FILE = "./data/ebay-price-state.json";
 const DEFAULT_POLL_INTERVAL_MS = 900_000; // 15 minutes
+const DEFAULT_BASE_CURRENCY = "USD";
+const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -93,6 +102,14 @@ export function loadConfig(): AppConfig {
 
   const items = loadItems(itemsFile);
 
+  const baseCurrencyRaw = process.env.BASE_CURRENCY?.trim().toUpperCase();
+  const baseCurrency = baseCurrencyRaw || DEFAULT_BASE_CURRENCY;
+  if (!CURRENCY_CODE_PATTERN.test(baseCurrency)) {
+    throw new Error(
+      `BASE_CURRENCY must be a 3-letter ISO 4217 currency code (e.g. "USD", "EUR"), got "${baseCurrency}".`
+    );
+  }
+
   return {
     ebayClientId,
     ebayClientSecret,
@@ -101,5 +118,6 @@ export function loadConfig(): AppConfig {
     stateFile,
     pollIntervalMs,
     items,
+    baseCurrency,
   };
 }

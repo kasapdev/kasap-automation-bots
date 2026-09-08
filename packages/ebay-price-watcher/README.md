@@ -12,14 +12,19 @@ watched item's price goes down.
 2. `auth.ts` gets an eBay OAuth2 access token via the client-credentials flow and caches
    it in memory until shortly before it expires, so it isn't re-requested on every check.
 3. `ebayClient.ts` calls the eBay Browse API `GET /buy/browse/v1/item/{item_id}` endpoint
-   for each watched item and reads its current price.
-4. `state.ts` reads/writes a local JSON file (`EBAY_STATE_FILE`, default
-   `./data/ebay-price-state.json`) that remembers the last price seen for each item, so a
-   drop can be detected on the next run.
-5. `priceDiff.ts` is a pure function comparing the previous and current price.
-6. When a drop is detected, `discordNotify.ts` builds a Turkish embed and posts it to
+   for each watched item and reads its current price and currency.
+4. `currency.ts` converts that price into your configured `BASE_CURRENCY` (see
+   [Multi-Currency Normalization](#multi-currency-normalization) below) before anything
+   is compared.
+5. `state.ts` reads/writes a local JSON file (`EBAY_STATE_FILE`, default
+   `./data/ebay-price-state.json`) that remembers the last price seen for each item (both
+   in its own listing currency and normalized into the base currency), so a drop can be
+   detected on the next run.
+6. `priceDiff.ts` is a pure function comparing the previous and current price - always in
+   the base currency, so items are never diffed across mismatched currencies.
+7. When a drop is detected, `discordNotify.ts` builds a Turkish embed and posts it to
    your `DISCORD_WEBHOOK_URL`.
-7. `poll.ts` orchestrates one full pass over all watched items (`pollOnce`); `index.ts`
+8. `poll.ts` orchestrates one full pass over all watched items (`pollOnce`); `index.ts`
    is the thin CLI entry point that runs one pass, or loops on an interval with `--watch`.
 
 ## Setup
@@ -67,6 +72,54 @@ committed) listing the eBay Browse API item IDs you want to watch:
 See [ebay-items.example.json](ebay-items.example.json) for a placeholder example - the
 `itemId` in that file is a fake ID and must be replaced with a real one.
 
+## Multi-Currency Normalization
+
+The eBay Browse API returns each item's price in whatever currency its listing (or
+your account's marketplace) uses - two watched items can easily come back in different
+currencies (e.g. `USD` and `EUR`), and even one item's currency can change between
+checks. Comparing those raw numbers directly would be meaningless (is `85 EUR` a drop
+from `90 USD`? You can't tell without converting).
+
+To fix that, every fetched price is converted into one **base currency**
+(`BASE_CURRENCY`, default `USD`) before it's stored or diffed:
+
+- `currency.ts`'s `fetchExchangeRate(from, to, fetchImpl?)` gets the current rate from
+  the free [Frankfurter API](https://frankfurter.dev/) (ECB reference rates, no API key
+  needed) - same injectable-`fetch` pattern as every other API call in this package, so
+  it's fully mockable in tests. Same-currency conversions (the common case) short-circuit
+  to a rate of `1` with **no network call at all**. Rates are cached in memory for an
+  hour so a poll pass over many items in one non-base currency only fetches the rate once.
+- `pollOnce` converts each item's current price into `BASE_CURRENCY` and diffs *that*
+  against the base-currency price stored from the previous run - never the raw listing
+  price. If `BASE_CURRENCY` changes between runs (or you're upgrading from a state file
+  written before this feature existed), the stale base-currency value is discarded and
+  treated as "no previous price" rather than silently compared across currencies.
+- The Discord embed for a drop always shows the base-currency comparison; when the
+  item's own listing currency differs from `BASE_CURRENCY`, it adds a line with the
+  original listing price for context.
+- `sumBaseCurrencyValue(results)` totals every successfully-checked item's current
+  price in the base currency, so a portfolio of items in different currencies can be
+  compared/summed meaningfully - `index.ts` logs this total after every check.
+
+Example - watching one USD item and one EUR item with `BASE_CURRENCY=USD`:
+
+```bash
+$ BASE_CURRENCY=USD pnpm --filter @kasap/ebay-price-watcher start
+[ebay-price-watcher] 2 ürün kontrol ediliyor (baz para birimi: USD)...
+[ebay-price-watcher] Değişiklik yok: US Item (v1|111|0) - 129.99 USD
+[ebay-price-watcher] Fiyat düştü: EU Item (v1|222|0) - 90 -> 80 EUR (88.13 USD)
+[ebay-price-watcher] Toplam izlenen değer: 218.12 USD
+```
+
+Programmatically:
+
+```ts
+import { fetchExchangeRate, convertPrice } from "./src/currency.js";
+
+const rate = await fetchExchangeRate("EUR", "USD"); // real network call, uses Frankfurter
+const usdPrice = convertPrice(80, rate); // 80 EUR -> ~88.13 USD
+```
+
 ## Usage
 
 Build once (from the workspace root, or inside this package):
@@ -100,7 +153,7 @@ pnpm --filter @kasap/ebay-price-watcher dev
 pnpm --filter @kasap/ebay-price-watcher test
 ```
 
-All eBay OAuth, eBay Browse API, and Discord webhook calls are mocked (`vi.fn()` /
-injected `fetch`) - no real network calls are made during tests. `state.ts` is tested
-against a real temporary directory (local disk I/O, not network), which is fine and
-intentional.
+All eBay OAuth, eBay Browse API, Frankfurter exchange-rate, and Discord webhook calls
+are mocked (`vi.fn()` / injected `fetch`) - no real network calls are made during tests.
+`state.ts` is tested against a real temporary directory (local disk I/O, not network),
+which is fine and intentional.

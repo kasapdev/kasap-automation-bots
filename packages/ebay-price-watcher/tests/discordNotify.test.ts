@@ -16,6 +16,33 @@ describe("buildPriceDropEmbed", () => {
     expect(embed.description).toContain("80.00 USD");
     expect(embed.description).toContain("%20.0");
   });
+
+  it("appends the original listing price when it differs from the comparison currency", () => {
+    const embed = buildPriceDropEmbed(
+      { itemId: "v1|123456789|0", label: "Örnek ürün" },
+      99, // previous, in USD (the base currency)
+      88, // current, in USD
+      "USD",
+      { value: 80, currency: "EUR" } // original EUR listing price
+    );
+
+    expect(embed.description).toContain("99.00 USD");
+    expect(embed.description).toContain("88.00 USD");
+    expect(embed.description).toContain("orijinal liste fiyatı");
+    expect(embed.description).toContain("80.00 EUR");
+  });
+
+  it("does not append an original-price line when original currency matches the comparison currency", () => {
+    const embed = buildPriceDropEmbed(
+      { itemId: "v1|123456789|0", label: "Örnek ürün" },
+      100,
+      80,
+      "USD",
+      { value: 80, currency: "usd" } // same currency, different case
+    );
+
+    expect(embed.description).not.toContain("orijinal liste fiyatı");
+  });
 });
 
 describe("postDiscordWebhook", () => {

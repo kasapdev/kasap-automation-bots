@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { loadConfig } from "./config.js";
-import { pollOnce } from "./poll.js";
+import { pollOnce, sumBaseCurrencyValue } from "./poll.js";
 
 function log(message: string): void {
   console.log(`[ebay-price-watcher] ${message}`);
@@ -8,7 +8,7 @@ function log(message: string): void {
 
 async function runOnce(): Promise<void> {
   const config = loadConfig();
-  log(`${config.items.length} ürün kontrol ediliyor...`);
+  log(`${config.items.length} ürün kontrol ediliyor (baz para birimi: ${config.baseCurrency})...`);
 
   const results = await pollOnce(config);
 
@@ -17,14 +17,21 @@ async function runOnce(): Promise<void> {
       log(`Hata - ${result.label} (${result.itemId}): ${result.error}`);
       continue;
     }
+    const baseNote =
+      result.currency && result.currency.toUpperCase() !== config.baseCurrency.toUpperCase()
+        ? ` (${result.currentBase?.toFixed(2)} ${config.baseCurrency})`
+        : "";
     if (result.dropped) {
       log(
-        `Fiyat düştü: ${result.label} (${result.itemId}) - ${result.previous} -> ${result.current} ${result.currency}`
+        `Fiyat düştü: ${result.label} (${result.itemId}) - ${result.previous} -> ${result.current} ${result.currency}${baseNote}`
       );
     } else {
-      log(`Değişiklik yok: ${result.label} (${result.itemId}) - ${result.current} ${result.currency}`);
+      log(`Değişiklik yok: ${result.label} (${result.itemId}) - ${result.current} ${result.currency}${baseNote}`);
     }
   }
+
+  const total = sumBaseCurrencyValue(results);
+  log(`Toplam izlenen değer: ${total.toFixed(2)} ${config.baseCurrency}`);
 }
 
 async function main(): Promise<void> {
